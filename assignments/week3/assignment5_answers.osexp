@@ -1,0 +1,178 @@
+---
+API: 2.1
+OpenSesame: 3.2.6
+Platform: posix
+---
+set width 1024
+set uniform_coordinates yes
+set title "New experiment"
+set subject_parity even
+set subject_nr 0
+set start experiment
+set sound_sample_size -16
+set sound_freq 48000
+set sound_channels 2
+set sound_buf_size 1024
+set round_decimals 2
+set height 768
+set fullscreen no
+set form_clicks no
+set foreground white
+set font_underline no
+set font_size 18
+set font_italic no
+set font_family mono
+set font_bold no
+set disable_garbage_collection yes
+set description "The main experiment item"
+set coordinates uniform
+set compensation 0
+set canvas_backend xpyriment
+set background black
+
+define loop block_loop
+	set source table
+	set repeat 20
+	set order random
+	set description "Repeatedly runs another item"
+	set cycles 1
+	set continuous no
+	set break_if_on_first yes
+	set break_if never
+	setcycle 0 empty_column ""
+	run trial_sequence
+
+define sequence block_sequence
+	set flush_keyboard yes
+	set description "Runs a number of items in sequence"
+	run start_block always
+	run block_loop always
+
+define inline_script draw_stimulus
+	set description "Executes Python code"
+	___run__
+	# each trial starts with 300 ms fixation
+	fixation_cnvs.show()
+	var.sleep(300)
+	# tehn show word until response
+	stroop_cnvs.show()
+	__end__
+	___prepare__
+	# import relevant modules
+	import random
+	
+	# create new canvas to draw stimuli 
+	fixation_cnvs = canvas()
+	stroop_cnvs = canvas()
+	
+	# retrieve the block_type from the block_loop
+	current_block_type = var.block_type
+	
+	# set trial variables
+	if current_block_type == 'congruent':
+		# identity of the word is the same as its color
+		colors = ['red','green','blue']
+		word_color = random.choice(colors)
+		word_identity = word_color.upper()
+	elif current_block_type == 'incongruent':
+		colors = ['red','green','blue']
+		word_color = random.choice(colors)
+		# remove the selected color from the list
+		colors.remove(word_color)
+		word_identity = random.choice(colors).upper()
+	elif current_block_type == 'nonword':
+		word_identity = random.choice(['PYTHON','RANGE','VARIABLE','RANDOM','WHILE'])
+		word_color = random.choice(['red','green','blue'])
+		word_identity = word_identity[::-1]
+	elif current_block_type == 'categorical':
+		cat_words = [('GRASS','green'), ('FROGG','green'), \
+					('FIRE','red'),('TOMATO','red'), \
+					('SKY','blue'),('WATER','blue')]
+		word_color = random.choice(['red','green','blue'])	
+		word_identity, word_association  = random.choice(cat_words)
+		if word_color == word_association:
+			var.associated = 'yes'
+		else:
+			var.associated = 'no'
+	else: #neutral block
+		word_identity = random.choice(['FORK','SPOON','TABLE','KNIFE','TOWEL'])
+		word_color = random.choice(['red','green','blue'])
+	
+	# set the correct response
+	if word_color == 'red':
+		var.correct_response = 'r'
+	elif word_color == 'green':
+		var.correct_response = 'g'
+	elif word_color == 'blue':	
+		var.correct_response = 'b'
+	# or	
+	var.correct_response = word_color[0]
+		
+	# draw all stimuli
+	fixation_cnvs.fixdot()
+	stroop_cnvs.text(word_identity, color=word_color)
+	
+	# log variables of interest
+	var.word_color = word_color
+	var.word_identity = word_identity
+	__end__
+
+define sketchpad end
+	set duration keypress
+	set description "Displays stimuli"
+	draw textline center=1 color=white font_bold=no font_family=mono font_italic=no font_size=18 html=yes show_if=always text="This is the end of the experiment" x=0 y=0 z_index=0
+
+define sequence experiment
+	set flush_keyboard yes
+	set description "Runs a number of items in sequence"
+	run instructions always
+	run experimental_loop always
+	run end always
+
+define loop experimental_loop
+	set source_file ""
+	set source table
+	set repeat 1
+	set order random
+	set description "Repeatedly runs another item"
+	set cycles 5
+	set continuous no
+	set break_if_on_first yes
+	set break_if never
+	setcycle 0 block_type neutral
+	setcycle 1 block_type congruent
+	setcycle 2 block_type incongruent
+	setcycle 3 block_type nonword
+	setcycle 4 block_type categorical
+	run block_sequence
+
+define sketchpad instructions
+	set duration keypress
+	set description "Displays stimuli"
+	draw textline center=1 color=white font_bold=no font_family=mono font_italic=no font_size=18 html=yes show_if=always text="Add instructions here (If needed on multiple screens)" x=0 y=0 z_index=0
+	draw textline center=1 color=white font_bold=no font_family=mono font_italic=no font_size=18 html=yes show_if=always text="Press a button to start the experiment" x=0 y=128 z_index=0
+
+define keyboard_response keyboard_response
+	set timeout infinite
+	set flush yes
+	set event_type keypress
+	set duration keypress
+	set description "Collects keyboard responses"
+	set allowed_responses "r;g;b"
+
+define logger logger
+	set description "Logs experimental data"
+	set auto_log yes
+
+define sketchpad start_block
+	set duration keypress
+	set description "Displays stimuli"
+	draw textline center=1 color=white font_bold=no font_family=mono font_italic=no font_size=18 html=yes show_if=always text="Insert start new block instructions here" x=0 y=0 z_index=0
+
+define sequence trial_sequence
+	set flush_keyboard yes
+	set description "Runs a number of items in sequence"
+	run draw_stimulus always
+	run keyboard_response always
+	run logger always
+
