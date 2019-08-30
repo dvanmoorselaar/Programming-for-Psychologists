@@ -1,0 +1,192 @@
+---
+API: 2.1
+OpenSesame: 3.2.6
+Platform: posix
+---
+set width 1024
+set uniform_coordinates yes
+set title "New experiment"
+set subject_parity even
+set subject_nr 0
+set start experiment
+set sound_sample_size -16
+set sound_freq 48000
+set sound_channels 2
+set sound_buf_size 1024
+set round_decimals 2
+set height 768
+set fullscreen no
+set form_clicks no
+set foreground white
+set font_underline no
+set font_size 18
+set font_italic no
+set font_family mono
+set font_bold no
+set experiment_path "/Users/dvm/Documents/Programming 2019/assignments/assignment8"
+set disable_garbage_collection yes
+set description "The main experiment item"
+set coordinates uniform
+set compensation 0
+set canvas_backend xpyriment
+set background black
+
+define notepad answers
+	__note__
+	while circle center not in the middle:
+		select a random number that is at least 100 pixels away from left and right side of display
+		select a random number that is at least 100 pixels away from top and bottom of display
+		draw a circle at selected x,y position
+		show canvas
+		if circle_position is within center rectangle break from loop
+		pause experiment before showing new circle
+	__end__
+	set description "A simple notepad to document your experiment. This plug-in does nothing."
+
+define loop block_loop
+	set source_file ""
+	set source table
+	set repeat 20
+	set order random
+	set description "Repeatedly runs another item"
+	set cycles 3
+	set continuous no
+	set break_if_on_first yes
+	set break_if never
+	setcycle 0 circle_radius 5
+	setcycle 1 circle_radius 10
+	setcycle 2 circle_radius 15
+	run trial_sequence
+
+define sequence block_sequence
+	set flush_keyboard yes
+	set description "Runs a number of items in sequence"
+	run block_loop always
+
+define sketchpad end_experiment
+	set duration keypress
+	set description "Displays stimuli"
+	draw textline center=1 color=white font_bold=no font_family=mono font_italic=no font_size=18 html=yes show_if=always text="This is the end of the experiment" x=0 y=0 z_index=0
+
+define sequence experiment
+	set flush_keyboard yes
+	set description "Runs a number of items in sequence"
+	run answers always
+	run start_experiment always
+	run experimental_loop always
+	run end_experiment always
+
+define loop experimental_loop
+	set source_file ""
+	set source table
+	set repeat 2
+	set order random
+	set description "Repeatedly runs another item"
+	set cycles 1
+	set continuous no
+	set break_if_on_first yes
+	set break_if never
+	setcycle 0 empty_column ""
+	run block_sequence
+
+define notepad getting_started
+	__note__
+	Welcome to OpenSesame 3.2 "Kafkaesque Koffka"!
+	If you are new to OpenSesame, it is a good idea to follow one of the tutorials,
+	which can be found on the documentation site:
+	- <http://osdoc.cogsci.nl/>
+	You can also check out the examples. These can be opened via:
+	- Menu -> Tools -> Example experiments.
+	And feel free to ask for help on the forum:
+	- <http://forum.cogsci.nl/>
+	Have fun with OpenSesame!
+	__end__
+	set description "A simple notepad to document your experiment. This plug-in does nothing."
+
+define keyboard_response keyboard_response
+	set timeout infinite
+	set flush yes
+	set event_type keypress
+	set duration keypress
+	set description "Collects keyboard responses"
+	set allowed_responses space
+
+define sketchpad new_sketchpad
+	set duration keypress
+	set description "Displays stimuli"
+
+define sketchpad new_sketchpad_1
+	set duration keypress
+	set description "Displays stimuli"
+
+define sketchpad start_experiment
+	set duration keypress
+	set description "Displays stimuli"
+	draw textline center=1 color=white font_bold=no font_family=mono font_italic=no font_size=18 html=yes show_if=always text="insert instructions here" x=0 y=0 z_index=0
+
+define inline_script stimulus_display
+	set description "Executes Python code"
+	___run__
+	# initiate keyboard (allows for loop breaks)
+	from openexp.keyboard import keyboard
+	kb = keyboard(exp)
+	
+	# import relevant modules
+	import random
+	
+	# trial sequence
+	# start with fixation
+	fix_cnvs.show()
+	clock.sleep(1000)
+	
+	# show empty box
+	dot_cnvs.show()
+	clock.sleep(1000)
+	# keep adding circles until circle is within box
+	old_x, old_y = 0,0 # necessary for flip check
+	while True:
+		kb.get_key(timeout=0)
+		# select random x and y with boundary restriction
+		x = random.randint(dot_cnvs.left + 100, dot_cnvs.right - 100)
+		y = random.randint(dot_cnvs.top + 100, dot_cnvs.bottom - 100)
+		# check for horizontal flip
+		while x * old_x > 0:
+			x = random.randint(dot_cnvs.left + 100, dot_cnvs.right - 100)
+		# check for horizontal flip
+		while y * old_y > 0:	
+			y = random.randint(dot_cnvs.top + 100, dot_cnvs.bottom - 100)
+		# draw circle with radius as defined in block_loop
+		dot_cnvs.circle(x, y, var.circle_radius, fill = True, color = 'red')
+		dot_cnvs.show()
+		if (x > -100 and x < 100) and (y > -100 and y < 100):
+			break
+		# subsequent circles are interleaved with random interval	
+		clock.sleep(random.choice([500, 750, 1000]))
+		old_x = x
+		old_y = y
+	__end__
+	___prepare__
+	# create two canvasses for upcoming trial
+	fix_cnvs = canvas()
+	dot_cnvs = canvas()
+	
+	# draw fixation
+	fix_cnvs.fixdot()
+	
+	# draw unfiiled squarenvs
+	dot_cnvs.rect(x = -100, y = -100, w = 200, h = 200, fill = False)
+	__end__
+
+define sequence trial_sequence
+	set flush_keyboard yes
+	set description "Runs a number of items in sequence"
+	run stimulus_display always
+	run keyboard_response always
+
+define sketchpad welcome
+	set start_response_interval no
+	set reset_variables no
+	set duration keypress
+	set description "Displays stimuli"
+	draw textline center=1 color=white font_bold=no font_family=serif font_italic=no font_size=32 html=yes show_if=always text="OpenSesame 3.2 <i>Kafkaesque Koffka</i>" x=0 y=0 z_index=0
+
